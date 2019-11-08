@@ -30,8 +30,62 @@ public:
   
 	virtual Vec3f Shade(const Ray& ray) const override
 	{
-		// --- PUT YOUR CODE HERE ---
-		return RGB(0,0,0);
+		Vec3f du = (1, 0, 0);
+		Vec3f dv = (0, 0, 1);
+		Vec3f h = ray.org + ray.t * ray.dir;
+
+		float delta_u = 0.5f * cos(3 * h[0] * sin(h[2]));
+		float delta_v = 0.5f * sin(13 * h[2]); 
+
+		Vec3f nor_0 = ray.hit->getNormal(ray);
+		Vec3f nor_1 = normalize(nor_0 + delta_u * du + delta_v * dv);
+		if (nor_1.dot(ray.dir) > 0) {
+			nor_1 = -1 * nor_1;
+		}
+
+		Vec3f reflect = normalize(ray.dir - 2 * nor_1.dot(ray.dir) * nor_1);
+		Vec3f ambientIntensity(1,1,1);
+
+		Vec3f color = CShaderFlat::Shade();
+		Vec3f ambientColor = m_ka * color;
+		Vec3f result = ambientColor.mul(ambientIntensity);
+
+		Ray shadow;
+		shadow.org = ray.org + ray.t * ray.dir;
+
+		for (auto pLight : m_scene.m_vpLights)
+			for(int s = 0; s < nAreaSamples; s++) {
+				std::optional<Vec3f> lightIntensity = pLight->Illuminate(shadow);
+				if (lightIntensity) {
+					float cosLightNormal = shadow.dir.dot(nor_1);
+					if (cosLightNormal > 0) {
+						if (m_scene.Occluded(shadow)) {
+							continue;
+						}
+
+						Vec3f diffuseColor = m_kd * color;
+						result += (diffuseColor * cosLightNormal).mul(lightIntensity.value());
+					}
+
+					float cosLightReflect = shadow.dir.dot(reflect);
+					if (cosLightReflect > 0) {
+						Vec3f specularColor = m_ks * RGB(1, 1, 1); // white highlight;
+						result += (specularColor * powf(cosLightReflect, m_ke)).mul(lightIntensity.value());
+					}
+				}
+			}
+
+		if (nAreaSamples > 1) {
+			result /= nAreaSamples;
+		}
+
+		for (int i = 0; i < 3; i++) {
+			if (result.val[i] > 1) {
+				result.val[i] = 1;
+			}
+		}
+		
+		return result;
 	}
 
 private:

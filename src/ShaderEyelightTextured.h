@@ -23,8 +23,10 @@ public:
   
 	virtual Vec3f Shade(const Ray& ray) const override
 	{
-		// --- PUT YOUR CODE HERE ---
-		return Vec3f(0, 0, 0); 
+		Vec2f UV_ray = ray.hit->getUV(ray);
+		Vec3f tex_Shade = texture.GetTexel(UV_ray[0], UV_ray[1]);
+		Vec3f eye_Shade = CShaderEyelight::Shade(ray);
+		return tex_Shade.mul(eye_Shade);
 	}
 
 private:
